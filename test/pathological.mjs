@@ -151,5 +151,12 @@ describe('Pathological sequences speed', () => {
     it('a lot of smartquotes', async () => {
       await test_pattern('"'.repeat(160000), { typographer: true })
     })
+
+    it('linkify-it wrapper trailing asterisks pattern', async () => {
+      await test_pattern(
+        'https://test.com?' + '*'.repeat(70000) + 'a',
+        { linkify: true }
+      )
+    })
   })
 })
