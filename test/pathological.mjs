@@ -1,7 +1,7 @@
 import assert from 'node:assert'
 import { Worker as JestWorker } from 'jest-worker'
 
-async function test_pattern (str) {
+async function test_pattern (str, mdOpts) {
   const worker = new JestWorker(
     new URL('./pathological_worker.js', import.meta.url),
     {
@@ -15,7 +15,7 @@ async function test_pattern (str) {
 
   try {
     result = await Promise.race([
-      worker.render(str),
+      worker.render(str, mdOpts),
       new Promise((resolve, reject) => {
         setTimeout(() => reject(new Error('Terminated (timeout exceeded)')), 3000).unref()
       })
@@ -146,6 +146,10 @@ describe('Pathological sequences speed', () => {
 
     it('hardbreak whitespaces pattern', async () => {
       await test_pattern('x' + ' '.repeat(150000) + 'x  \nx')
+    })
+
+    it('a lot of smartquotes', async () => {
+      await test_pattern('"'.repeat(160000), { typographer: true })
     })
   })
 })
