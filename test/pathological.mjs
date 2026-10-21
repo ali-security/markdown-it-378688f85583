@@ -163,6 +163,11 @@ describe('Pathological sequences speed', () => {
       await test_pattern('"'.repeat(160000), { typographer: true })
     })
 
+    it('smartquotes with mismatched opener and closer types', async () => {
+      await test_pattern('"a '.repeat(100000) + "b' ".repeat(100000), { typographer: true })
+      await test_pattern("'a ".repeat(100000) + 'b" '.repeat(100000), { typographer: true })
+    })
+
     it('linkify-it wrapper trailing asterisks pattern', async () => {
       await test_pattern(
         'https://test.com?' + '*'.repeat(70000) + 'a',
