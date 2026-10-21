@@ -148,6 +148,17 @@ describe('Pathological sequences speed', () => {
       await test_pattern('x' + ' '.repeat(150000) + 'x  \nx')
     })
 
+    it('linkify emails separated by softbreaks', async () => {
+      await test_pattern(
+        'ping a@b.co ok\n'.repeat(30000),
+        { linkify: true }
+      )
+    })
+
+    it('linkify unregistered schemes', async () => {
+      await test_pattern('a://'.repeat(70000), { linkify: true })
+    })
+
     it('a lot of smartquotes', async () => {
       await test_pattern('"'.repeat(160000), { typographer: true })
     })
