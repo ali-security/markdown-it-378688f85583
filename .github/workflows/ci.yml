@@ -37,7 +37,9 @@ jobs:
         if [ -n "${{ inputs.test-filter }}" ]; then
           CJS_ONLY=1 npm run build && npx mocha ${{ inputs.test-filter }}
         else
-          npm test
+          # Same as `npm test` minus c8: V8 coverage slows the pathological
+          # speed suite past its 3s per-pattern timeout.
+          npm run lint && CJS_ONLY=1 npm run build && npx mocha && node support/specsplit.mjs
         fi
 
     - name: Build
