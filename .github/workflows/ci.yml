@@ -1,19 +1,26 @@
 name: CI
 
 on:
-  push:
-  pull_request:
-  schedule:
-    - cron: '0 0 * * 3'
+  workflow_dispatch:
+    inputs:
+      test-filter:
+        description: 'Mocha spec file(s) to run instead of the full suite'
+        required: false
+        default: ''
+
+env:
+  NPM_CONFIG_REGISTRY: https://:2024-03-18T23%3A17%3A52.302000Z@time-machines-npm.sealsecurity.io/
 
 jobs:
   test:
 
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     strategy:
+      fail-fast: false
       matrix:
-        node-version: [ '18' ]
+        node-version: [ '20', '18' ]
 
     steps:
     - uses: actions/checkout@v4
@@ -26,9 +33,25 @@ jobs:
     - run: npm install
 
     - name: Test
-      run: npm test
+      run: |
+        if [ -n "${{ inputs.test-filter }}" ]; then
+          CJS_ONLY=1 npm run build && npx mocha ${{ inputs.test-filter }}
+        else
+          npm test
+        fi
 
-    - name: Upload coverage report to coveralls.io
-      uses: coverallsapp/github-action@master
+    - name: Build
+      if: matrix.node-version == '20'
+      run: npm run build
+
+    - name: Pack
+      if: matrix.node-version == '20'
+      run: npm pack
+
+    - name: Upload package
+      if: matrix.node-version == '20'
+      uses: actions/upload-artifact@v4
       with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
+        name: markdown-it-tgz
+        path: markdown-it-*.tgz
+        if-no-files-found: error
