@@ -201,6 +201,23 @@ describe('Plugins', function () {
 })
 
 describe('Misc', function () {
+  it('Should limit reference label to 999 characters', function () {
+    const md = markdownit()
+    const env = {}
+
+    md.parse(`[${'a'.repeat(999)}]: /url\n\n[${'b'.repeat(1000)}]: /url`, env)
+    assert.deepEqual(Object.keys(env.references), ['A'.repeat(999)])
+  })
+
+  it('Should require whitespace before reference title continued on next line', function () {
+    const md = markdownit()
+
+    assert.strictEqual(md.render('- [ref]: <url>"open\n  close"'),
+      '<ul>\n<li>[ref]: &lt;url&gt;&quot;open\nclose&quot;</li>\n</ul>\n')
+    assert.strictEqual(md.render('[ref]: <url> "open\nclose"\n\n[ref]'),
+      '<p><a href="url" title="open\nclose">ref</a></p>\n')
+  })
+
   it('Should replace NULL characters', function () {
     const md = markdownit()
 
@@ -291,6 +308,37 @@ describe('Misc', function () {
     assert.strictEqual(md.render('\\\uD835\uDC9C'), '<p>\\\uD835\uDC9C</p>\n')
     assert.strictEqual(md.render('\\\uD835x'), '<p>\\\uD835x</p>\n')
     assert.strictEqual(md.render('\\\uD835'), '<p>\\\uD835</p>\n')
+  })
+
+  it('Should linkify several text tokens of one inline block', function () {
+    const md = markdownit({ linkify: true })
+
+    assert.strictEqual(
+      md.render('a@b.co x\nexample.com *y* c@d.co'),
+      '<p><a href="mailto:a@b.co">a@b.co</a> x\n<a href="http://example.com">example.com</a> ' +
+      '<em>y</em> <a href="mailto:c@d.co">c@d.co</a></p>\n'
+    )
+  })
+
+  it('Should count reference label length in code points', function () {
+    const md = markdownit()
+    const env = {}
+
+    md.parse(`[${'\u{1F600}'.repeat(999)}]: /url\n\n[${'\u{1F601}'.repeat(998)}ab]: /url`, env)
+    assert.deepEqual(Object.keys(env.references), ['\u{1F600}'.repeat(999)])
+  })
+
+  it('Should skip html comments, PIs, declarations and CDATA after an unclosed one', function () {
+    const md = markdownit({ html: true })
+
+    assert.strictEqual(
+      md.render('a <? b <!-- c --> <i>d</i>\n\ne <!-- f -->'),
+      '<p>a &lt;? b &lt;!-- c --&gt; <i>d</i></p>\n<p>e <!-- f --></p>\n'
+    )
+    assert.strictEqual(
+      md.render('a <!1> <!-- b -->'),
+      '<p>a &lt;!1&gt; <!-- b --></p>\n'
+    )
   })
 })
 
@@ -384,6 +432,17 @@ describe('smartquotes', function () {
     assert.strictEqual(
       md.render('"a *b \'c *d* e\' f* g"'),
       '<p>[[[a <em>b (((((c <em>d</em> e)))) f</em> g]]</p>\n'
+    )
+  })
+
+  it('Should leave quotes unchanged when there are more than 1000 openers', function () {
+    assert.strictEqual(
+      md.render('"a" ' + '"b '.repeat(1000) + 'c"'),
+      '<p>[[[a]] ' + '&quot;b '.repeat(999) + '[[[b c]]</p>\n'
+    )
+    assert.strictEqual(
+      md.render('"a" ' + '"b '.repeat(1001) + 'c"\n\n"d"'),
+      '<p>&quot;a&quot; ' + '&quot;b '.repeat(1001) + 'c&quot;</p>\n<p>[[[d]]</p>\n'
     )
   })
 })

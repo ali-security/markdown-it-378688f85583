@@ -1,7 +1,7 @@
 import assert from 'node:assert'
 import { Worker as JestWorker } from 'jest-worker'
 
-async function test_pattern (str) {
+async function test_pattern (str, mdOpts) {
   const worker = new JestWorker(
     new URL('./pathological_worker.js', import.meta.url),
     {
@@ -15,7 +15,7 @@ async function test_pattern (str) {
 
   try {
     result = await Promise.race([
-      worker.render(str),
+      worker.render(str, mdOpts),
       new Promise((resolve, reject) => {
         setTimeout(() => reject(new Error('Terminated (timeout exceeded)')), 3000).unref()
       })
@@ -26,6 +26,13 @@ async function test_pattern (str) {
   }
 
   return result
+}
+
+// Raw HTML patterns are meaningless without `html: true`. Prepend a tag
+// to make sure HTML is really enabled.
+async function test_html_pattern (str) {
+  const result = await test_pattern('<b>' + str, { html: true })
+  assert.ok(result.startsWith('<p><b>'), 'HTML must be enabled')
 }
 
 describe('Pathological sequences speed', () => {
@@ -114,8 +121,11 @@ describe('Pathological sequences speed', () => {
       await test_pattern('[a](b'.repeat(30000))
     })
 
-    it('unclosed <!--', async () => {
-      await test_pattern('</' + '<!--'.repeat(100000))
+    it('unclosed <!--, <?, <!A, <![CDATA[', async () => {
+      await test_html_pattern('</' + '<!--'.repeat(150000))
+      await test_html_pattern('<?x'.repeat(400000))
+      await test_html_pattern('<!A'.repeat(250000))
+      await test_html_pattern('<![CDATA['.repeat(100000))
     })
 
     it('empty lines in deeply nested lists', async () => {
@@ -146,6 +156,42 @@ describe('Pathological sequences speed', () => {
 
     it('hardbreak whitespaces pattern', async () => {
       await test_pattern('x' + ' '.repeat(150000) + 'x  \nx')
+    })
+
+    it('linkify-it wrapper trailing asterisks pattern', async () => {
+      await test_pattern(
+        'https://test.com?' + '*'.repeat(70000) + 'a',
+        { linkify: true }
+      )
+    })
+
+    it('linkify emails separated by softbreaks', async () => {
+      await test_pattern(
+        'ping a@b.co ok\n'.repeat(30000),
+        { linkify: true }
+      )
+    })
+
+    it('linkify unregistered schemes', async () => {
+      await test_pattern('a://'.repeat(70000), { linkify: true })
+    })
+
+    it('a lot of smartquotes', async () => {
+      await test_pattern('"'.repeat(160000), { typographer: true })
+    })
+
+    it('smartquotes with mismatched opener and closer types', async () => {
+      await test_pattern('"a '.repeat(100000) + "b' ".repeat(100000), { typographer: true })
+      await test_pattern("'a ".repeat(100000) + 'b" '.repeat(100000), { typographer: true })
+    })
+
+    it('reference with multiline title', async () => {
+      await test_pattern('[a]: /u "' + 'x\n'.repeat(300000))
+      await test_pattern('[a]: /u "' + 'x\n'.repeat(300000) + '"')
+    })
+
+    it('reference with multiline label', async () => {
+      await test_pattern('[' + 'a\n'.repeat(300000))
     })
   })
 })

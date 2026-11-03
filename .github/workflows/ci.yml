@@ -37,7 +37,7 @@ jobs:
         if [ -n "${{ inputs.test-filter }}" ]; then
           CJS_ONLY=1 npm run build && npx mocha ${{ inputs.test-filter }}
         else
-          npm test
+          npm run lint && CJS_ONLY=1 npm run build && npx mocha && node support/specsplit.mjs
         fi
 
     - name: Build
